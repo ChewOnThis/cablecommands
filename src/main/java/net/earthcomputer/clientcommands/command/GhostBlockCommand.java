@@ -240,39 +240,34 @@ private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
     
         int startX = center.getX() - radius;
         int endX = center.getX() + radius;
+        int startY = Math.max(0, center.getY() - radius);
+        int endY = Math.min(255, center.getY() + radius);
         int startZ = center.getZ() - radius;
         int endZ = center.getZ() + radius;
     
-        int playerY = center.getY();
-    
         for (int x = startX; x <= endX; x++) {
-            for (int z = startZ; z <= endZ; z++) {
-                int dx = x - center.getX();
-                int dz = z - center.getZ();
-                if (dx * dx + dz * dz <= radius * radius) {
-                    BlockPos pos = new BlockPos(x, playerY, z);
-                    if (!level.hasChunkAt(pos)) {
-                        continue;
-                    }
-    
-                    // Ensure we check blocks at the correct Y level (from the surface downward)
-                    for (int y = playerY; y >= level.getMinBuildHeight(); y--) {
-                        BlockPos currentPos = new BlockPos(x, y, z);
-                        BlockState blockState = level.getBlockState(currentPos);
-                        if (!blockState.isAir()) {
-                            pos = currentPos;
-                            break;
+            for (int y = startY; y <= endY; y++) {
+                for (int z = startZ; z <= endZ; z++) {
+                    int dx = x - center.getX();
+                    int dy = y - center.getY();
+                    int dz = z - center.getZ();
+                    if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+                        BlockPos pos = new BlockPos(x, y, z);
+                        if (!level.hasChunkAt(pos)) {
+                            continue;
                         }
-                    }
+                        BlockState blockState = level.getBlockState(pos);
     
-                    // Check if the block at the position should be replaced
-                    if (shouldReplaceBlock(level, pos)) {
-                        level.setBlock(pos, state, 18); // Replace the block if allowed
+                        // Only replace the block if it meets the replacement conditions
+                        if (shouldReplaceBlock(level, pos)) {
+                            level.setBlock(pos, state, 18);
+                        }
                     }
                 }
             }
         }
     }
+    
     
 
 
@@ -375,8 +370,8 @@ BOAT METHOD SURF
 private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
     BlockState blockState = level.getBlockState(pos);
     Block block = blockState.getBlock();
-    
-    // Check if the block is in the exception list (e.g. glass, stained glass, etc.)
+
+    // Check if the block is in the exception list (e.g., glass, stained glass, etc.)
     if (EXCEPTION_TRANSPARENT_BLOCKS.contains(block)) {
         return false; // Do not replace this block
     }
@@ -392,11 +387,11 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
 
 
 
+
     // Method to check if a block is a flower or grass
     private static boolean isFlowerOrGrass(Block block) {
         return block == Blocks.DANDELION
             || block == Blocks.POPPY
-            || block == Blocks.AIR
             || block == Blocks.BLUE_ORCHID
             || block == Blocks.ALLIUM
             || block == Blocks.AZURE_BLUET
@@ -416,11 +411,10 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
             || block == Blocks.TALL_GRASS
             || block == Blocks.FERN
             || block == Blocks.LARGE_FERN
-            || block == Blocks.DEAD_BUSH
-            // Add other blocks as needed
-            ;
+            || block == Blocks.FIRE
+            || block == Blocks.DEAD_BUSH;
     }
-
+    
     private static void checkLoaded(ClientLevel level, BlockPos pos) throws CommandSyntaxException {
         if (!level.hasChunkAt(pos)) {
             throw new SimpleCommandExceptionType(Component.translatable("commands.setblock.failed")).create();
@@ -497,6 +491,14 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WAXED_EXPOSED_CUT_COPPER_STAIRS);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WAXED_WEATHERED_CUT_COPPER_STAIRS);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WAXED_OXIDIZED_CUT_COPPER_STAIRS);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.DIRT_PATH);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WATER);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.LAVA);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.ICE);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.SOUL_SAND);
+        EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.FARMLAND);
+        
+
         // Add any other stairs introduced in newer versions
     
         // Add all slabs
