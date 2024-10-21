@@ -373,7 +373,7 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
 
     // Check if the block is in the exception list (e.g., glass, stained glass, etc.)
     if (EXCEPTION_TRANSPARENT_BLOCKS.contains(block)) {
-        return false; // Do not replace this block
+        return true; // Do not replace this block
     }
 
     // Check if the block is a flower, grass, or other blocks that should not be replaced
@@ -411,8 +411,41 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
             || block == Blocks.TALL_GRASS
             || block == Blocks.FERN
             || block == Blocks.LARGE_FERN
-            || block == Blocks.FIRE
-            || block == Blocks.DEAD_BUSH;
+            || block == Blocks.DEAD_BUSH
+            || block == Blocks.BROWN_MUSHROOM
+            || block == Blocks.RED_MUSHROOM
+            || block == Blocks.CRIMSON_FUNGUS
+            || block == Blocks.WARPED_FUNGUS
+            || block == Blocks.CRIMSON_ROOTS
+            || block == Blocks.WARPED_ROOTS
+            || block == Blocks.NETHER_SPROUTS
+            || block == Blocks.AZALEA
+            || block == Blocks.FLOWERING_AZALEA
+            || block == Blocks.SPORE_BLOSSOM
+            || block == Blocks.CHERRY_SAPLING
+            || block == Blocks.PINK_PETALS
+            || block == Blocks.TORCH
+            || block == Blocks.SOUL_LANTERN
+            || block == Blocks.OAK_DOOR
+            || block == Blocks.SPRUCE_DOOR
+            || block == Blocks.BIRCH_DOOR
+            || block == Blocks.JUNGLE_DOOR
+            || block == Blocks.ACACIA_DOOR
+            || block == Blocks.DARK_OAK_DOOR
+            || block == Blocks.CRIMSON_DOOR
+            || block == Blocks.WARPED_DOOR
+            || block == Blocks.IRON_DOOR
+            // Add all trapdoors
+            || block == Blocks.OAK_TRAPDOOR
+            || block == Blocks.SPRUCE_TRAPDOOR
+            || block == Blocks.BIRCH_TRAPDOOR
+            || block == Blocks.JUNGLE_TRAPDOOR
+            || block == Blocks.ACACIA_TRAPDOOR
+            || block == Blocks.DARK_OAK_TRAPDOOR
+            || block == Blocks.CRIMSON_TRAPDOOR
+            || block == Blocks.WARPED_TRAPDOOR
+            || block == Blocks.IRON_TRAPDOOR
+            || block == Blocks.LADDER;
     }
     
     private static void checkLoaded(ClientLevel level, BlockPos pos) throws CommandSyntaxException {
@@ -497,7 +530,7 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.ICE);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.SOUL_SAND);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.FARMLAND);
-        
+
 
         // Add any other stairs introduced in newer versions
     
