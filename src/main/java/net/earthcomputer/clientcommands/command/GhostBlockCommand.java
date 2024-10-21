@@ -1,7 +1,14 @@
 package net.earthcomputer.clientcommands.command;
-
+import net.minecraft.world.phys.AABB;
+import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.entity.animal.horse.Horse;
+import net.minecraft.world.entity.animal.camel.Camel; // If using Minecraft 1.20 or later
+import net.minecraft.world.entity.animal.Pig;
+
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
@@ -16,12 +23,16 @@ import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.pattern.BlockInWorld;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
+
+import org.jetbrains.annotations.Nullable;
+import org.joml.Math;
 
 import static dev.xpple.clientarguments.arguments.CBlockPosArgument.blockPos;
 import static dev.xpple.clientarguments.arguments.CBlockPosArgument.getBlockPos;
@@ -47,6 +58,9 @@ public class GhostBlockCommand {
     private static boolean isSurfRunning = false;
     private static int surfRadius = 0;
     private static BlockState surfBlockState = null;
+
+    private static Integer surfYLevel = null; // This will store the custom Y level
+
 
     // Register the tick event handler
     static {
@@ -86,10 +100,33 @@ public class GhostBlockCommand {
             .then(literal("surf")
                 .then(argument("diameter", IntegerArgumentType.integer(1))
                     .then(argument("block", blockState(context))
-                        .executes(ctx -> startSurfGhostBlocks(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "diameter"), getBlockState(ctx, "block").getState())))))
+                        .executes(ctx -> startSurfGhostBlocks(
+                            ctx.getSource(),
+                            IntegerArgumentType.getInteger(ctx, "diameter"),
+                            getBlockState(ctx, "block").getState(),
+                            null // Use default entity-based Y level adjustment
+                        ))
+                        .then(argument("yLevel", integer()) // Allow specifying Y level directly
+                            .executes(ctx -> startSurfGhostBlocks(
+                                ctx.getSource(),
+                                IntegerArgumentType.getInteger(ctx, "diameter"),
+                                getBlockState(ctx, "block").getState(),
+                                IntegerArgumentType.getInteger(ctx, "yLevel") // Pass the custom Y level as an Integer
+                            ))))))
+            // Reintroduce the stop command
             .then(literal("stop")
-                .executes(ctx -> stopCircleGhostBlocks(ctx.getSource()))));
+                .executes(ctx -> stopGhostBlockReplacement(ctx.getSource()))));
     }
+    
+
+// Method to stop both the circle and surf ghost block replacements
+private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
+    isCircleRunning = false;
+    isSurfRunning = false;
+    surfYLevel = null; // Reset the surf Y level if it was set manually
+    source.sendFeedback(Component.literal("Stopped ghost block replacement."));
+    return Command.SINGLE_SUCCESS;
+}
 
     private static int setGhostBlock(FabricClientCommandSource source, BlockPos pos, BlockState state) throws CommandSyntaxException {
         ClientLevel level = source.getWorld();
@@ -147,13 +184,23 @@ public class GhostBlockCommand {
     }
 
     // Method to start the continuous surf update
-    private static int startSurfGhostBlocks(FabricClientCommandSource source, int diameter, BlockState state) {
+    private static int startSurfGhostBlocks(FabricClientCommandSource source, int diameter, BlockState state, @Nullable Integer yLevel) {
         surfRadius = diameter / 2;
         surfBlockState = state;
-        isSurfRunning = true;
+    
+        if (yLevel == null) {
+            isSurfRunning = true; // Use entity-based Y adjustment
+        } else {
+            surfYLevel = yLevel; // Use provided Y level
+            isSurfRunning = true;
+        }
+    
         source.sendFeedback(Component.literal("Started surf ghost block replacement."));
         return Command.SINGLE_SUCCESS;
     }
+    
+
+    
 
     // Method to stop the continuous circle or surf update
     private static int stopCircleGhostBlocks(FabricClientCommandSource source) {
@@ -183,48 +230,83 @@ public class GhostBlockCommand {
         if (client.player == null) {
             return; // No player, can't proceed
         }
-
+    
         // Update circleCenter to player's current position
         circleCenter = client.player.blockPosition();
-
+    
         BlockPos center = circleCenter;
         int radius = circleRadius;
         BlockState state = circleBlockState;
-
+    
         int startX = center.getX() - radius;
         int endX = center.getX() + radius;
         int startZ = center.getZ() - radius;
         int endZ = center.getZ() + radius;
-
+    
+        int playerY = center.getY();
+    
         for (int x = startX; x <= endX; x++) {
             for (int z = startZ; z <= endZ; z++) {
                 int dx = x - center.getX();
                 int dz = z - center.getZ();
                 if (dx * dx + dz * dz <= radius * radius) {
-                    // Find the topmost block at this x, z
-                    BlockPos pos = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z)).below();
-
+                    BlockPos pos = new BlockPos(x, playerY, z);
                     if (!level.hasChunkAt(pos)) {
                         continue;
                     }
-
+    
+                    // Ensure we check blocks at the correct Y level (from the surface downward)
+                    for (int y = playerY; y >= level.getMinBuildHeight(); y--) {
+                        BlockPos currentPos = new BlockPos(x, y, z);
+                        BlockState blockState = level.getBlockState(currentPos);
+                        if (!blockState.isAir()) {
+                            pos = currentPos;
+                            break;
+                        }
+                    }
+    
+                    // Check if the block at the position should be replaced
                     if (shouldReplaceBlock(level, pos)) {
-                        level.setBlock(pos, state, 18);
+                        level.setBlock(pos, state, 18); // Replace the block if allowed
                     }
                 }
             }
         }
     }
+    
+
+
+
 
     private static void runSurfReplacement(Minecraft client, ClientLevel level) {
         if (client.player == null) {
             return; // No player, can't proceed
         }
     
+        int y;
+        
+        // Check if a custom Y level is set
+        if (surfYLevel != null) {
+            y = surfYLevel; // Use the custom Y level provided by the user
+        } else {
+            // Use the default entity-based adjustment if no Y level is provided
+            Entity vehicle = client.player.getVehicle();
+            int yAdjustment;
+    
+            if (vehicle instanceof Boat) {
+                yAdjustment = 0;
+            } else if (vehicle instanceof Horse || vehicle instanceof Camel || vehicle instanceof Pig) {
+                yAdjustment = -1;
+            } else {
+                yAdjustment = -1; // Default adjustment when on foot or other entities
+            }
+    
+            y = client.player.blockPosition().getY() + yAdjustment;
+        }
+    
         BlockPos center = client.player.blockPosition();
         int radius = surfRadius;
         BlockState state = surfBlockState;
-        int y = center.getY() - 1; // Adjusted Y coordinate
     
         int startX = center.getX() - radius;
         int endX = center.getX() + radius;
@@ -246,29 +328,75 @@ public class GhostBlockCommand {
         }
     }
     
+    
+
+  
+/* 
+BOAT METHOD SURF
+   private static void runSurfReplacement(Minecraft client, ClientLevel level) {
+    if (client.player == null) {
+        return; // No player, can't proceed
+    }
+
+    BlockPos center = client.player.blockPosition();
+    int radius = surfRadius;
+    BlockState state = surfBlockState;
+
+    int y;
+    if (client.player.getVehicle() instanceof Boat) {
+        y = center.getY() - 2; // Adjusted Y-coordinate when in a boat
+    } else {
+        y = center.getY() - 1; // Normal adjustment
+    }
+
+    int startX = center.getX() - radius;
+    int endX = center.getX() + radius;
+    int startZ = center.getZ() - radius;
+    int endZ = center.getZ() + radius;
+
+    for (int x = startX; x <= endX; x++) {
+        for (int z = startZ; z <= endZ; z++) {
+            int dx = x - center.getX();
+            int dz = z - center.getZ();
+            if (dx * dx + dz * dz <= radius * radius) {
+                BlockPos pos = new BlockPos(x, y, z);
+                if (!level.hasChunkAt(pos)) {
+                    continue;
+                }
+                level.setBlock(pos, state, 18);
+            }
+        }
+    }
+}
+    */
 
     // Method to determine if the block should be replaced
-    private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
-        BlockState aboveBlockState = level.getBlockState(pos.above());
-        Block aboveBlock = aboveBlockState.getBlock();
-
-        // Check if the block above is a flower or grass
-        if (isFlowerOrGrass(aboveBlock)) {
-            return true;
-        }
-
-        // Check if the block above is air
-        if (aboveBlockState.isAir()) {
-            return true;
-        }
-
-        return false;
+// Method to determine if the block should be replaced
+private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
+    BlockState blockState = level.getBlockState(pos);
+    Block block = blockState.getBlock();
+    
+    // Check if the block is in the exception list (e.g. glass, stained glass, etc.)
+    if (EXCEPTION_TRANSPARENT_BLOCKS.contains(block)) {
+        return false; // Do not replace this block
     }
+
+    // Check if the block is a flower, grass, or other blocks that should not be replaced
+    if (isFlowerOrGrass(block)) {
+        return false; // Do not replace this block
+    }
+
+    // If the block is not air and not in the exception list, it can be replaced
+    return !blockState.isAir();
+}
+
+
 
     // Method to check if a block is a flower or grass
     private static boolean isFlowerOrGrass(Block block) {
         return block == Blocks.DANDELION
             || block == Blocks.POPPY
+            || block == Blocks.AIR
             || block == Blocks.BLUE_ORCHID
             || block == Blocks.ALLIUM
             || block == Blocks.AZURE_BLUET
