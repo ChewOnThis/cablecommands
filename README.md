@@ -1,4 +1,4 @@
-#What is this fork?
+# What is this fork?
 This is my version of EarthComputer's Clientcommands Minecraft client-side mod. I mainly focus on the fun aspects and mechanics of the GhostBlock.java file, possibly updating other things. This is mainly for me to become Frozone/Ice king by placing blocks at my feet instantly, water and bubble columns using hotkeys, and general movement stuff using ghostblocks. Nothing too technical, just messing around for added speed and movement in Minecraft.
 
 
