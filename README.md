@@ -1,5 +1,5 @@
 # What is this fork?
-This is my version of EarthComputer's Clientcommands Minecraft client-side mod. I mainly focus on the fun aspects and mechanics of the GhostBlock.java file, possibly updating other things. This is mainly for me to become Frozone/Ice king by placing blocks at my feet instantly, water and bubble columns using hotkeys, and general movement stuff using ghostblocks. Nothing too technical, just messing around for added speed and movement in Minecraft.
+This is my version of EarthComputer's Clientcommands Minecraft client-side mod. I mainly focus on the fun aspects and mechanics of the GhostBlock.java file, possibly updating other things. This is mainly for me to become Frozone/Ice king by placing blocks at my feet instantly, water and bubble columns using hotkeys, and general movement stuff using ghostblocks. Nothing too technical, just messing around for added speed and movement in Minecraft. You can check out what this does [here](https://medal.tv/games/minecraft/clips/iVqGta8kmEpBq1BMq?invite=cr-MSxnTTIsNDUyMTcwOCw), keep in mind this is works on vanilla Minecraft, in survival. With the exception of no flying rules (which you can generally bypass if you just touch a real block every 5-10 seconds), this mod allows you to traverse in any direction and access in vanilla with ease.
 
 
 # clientcommands
