@@ -12,13 +12,13 @@ Syntax is as follows:
 
 ### Surf
 
-- */cghostblock surf <diameter> <block> <ylevel>*
+- */cghostblock surf (<diameter>) (<block>) (<ylevel>)*
 
 Turns every block under your feet into a block of your choosing. Configured for mounts like boats so you can blue_ice boat anywhere in the world. Use the command followed by your preferred diameter (1 block works perfectly as every replacement is updated every tick so you cannot fall), then choose a block (for speed, blue ice is great and my primary usage of this function). I'll attach a video here later for demonstration, but essentially you become Frozone from the Incredibles.
 
 ### Circle
 
-- */cghostblock circle <diameter> <block>*
+- */cghostblock circle (<diameter>) (<block>)*
 
 Replaces every block on the surface of the world with a block of your choosing in a circle around the player with your choice of diameter, updated every tick. Blocks are valid for replacement if they touch an air block from the top. To avoid transparent blocks with no collision, there are a list of exceptions such as grass, flowers, mushrooms, torches ect as they sit on top of block that would otherwise be touching an air block. The block below the grass or other transparent noncollision blocks will be replaced. The primary function of this is to turn every block on the surface into something like blue ice, so you can boat on the surface of the world without breaching the no-flying rules. You could also just turn everything into slime blocks so you can bounce around and have extra jump height.
 
