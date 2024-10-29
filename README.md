@@ -12,7 +12,7 @@ Syntax is as follows:
 
 ### Surf
 
-- /cghostblock surf <<diameter>> <<block>> <<ylevel>>
+- /cghostblock surf <<"diameter">> <<"block">> <<"ylevel">>
 
 Turns every block under your feet into a block of your choosing. Configured for mounts like boats so you can blue_ice boat anywhere in the world. Use the command followed by your preferred diameter (1 block works perfectly as every replacement is updated every tick so you cannot fall), then choose a block (for speed, blue ice is great and my primary usage of this function). I'll attach a video here later for demonstration, but essentially you become Frozone from the Incredibles.
 
