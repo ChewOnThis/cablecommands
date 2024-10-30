@@ -1,6 +1,6 @@
 # What is this fork?
 
-This is my version of EarthComputer's clientcommands Minecraft client-side mod. I mainly focus on the fun aspects and mechanics of the GhostBlock.java file, possibly updating other things. This is mainly for me to become Frozone/Ice king by placing blocks at my feet instantly, water and bubble columns using hotkeys, and general movement stuff using ghostblocks. Nothing too technical, just messing around for added speed and movement in Minecraft. You can check out what this does [here](https://medal.tv/games/minecraft/clips/iVqGta8kmEpBq1BMq?invite=cr-MSxnTTIsNDUyMTcwOCw), keep in mind this is works on vanilla Minecraft, in survival. With the exception of no-flying rules (which you can generally bypass if you just touch a real block every 5-10 seconds), this mod allows you to traverse in any direction and access in vanilla with ease.
+This is my version of EarthComputer's clientcommands Minecraft client-side mod. I mainly focus on the fun aspects and mechanics of the GhostBlock.java file, possibly updating other things. This is mainly for me to become Frozone/Ice king by placing blocks at my feet instantly, water and bubble columns using hotkeys, and general movement stuff using ghostblocks. Nothing too technical, just messing around for added speed and movement in Minecraft. You can check out what this does [here](https://medal.tv/games/minecraft/clips/iYF3x879ezZVrysA1?invite=cr-MSwxQnQsNDUyMTcwOCw), keep in mind this is works on vanilla Minecraft, in survival. With the exception of no-flying rules (which you can generally bypass if you just touch a real block every 5-10 seconds), this mod allows you to traverse in any direction and access in vanilla with ease.
 
 # How to use in-game
 
@@ -14,7 +14,7 @@ Syntax is as follows:
 
 - */cghostblock surf (diameter) (block) (ylevel)*
 
-Turns every block under your feet into a block of your choosing. Configured for mounts like boats so you can blue_ice boat anywhere in the world. Use the command followed by your preferred diameter (1 block works perfectly as every replacement is updated every tick so you cannot fall), then choose a block (for speed, blue ice is great and my primary usage of this function). I'll attach a video here later for demonstration, but essentially you become Frozone from the Incredibles.
+Turns every block under your feet into a block of your choosing. Configured for mounts like boats so you can blue_ice boat anywhere in the world. Use the command followed by your preferred diameter (1 block works perfectly as every replacement is updated every tick so you cannot fall), then choose a block (for speed, blue ice is great and my primary usage of this function). Essentially you become Frozone from the Incredibles.
 
 ### Circle
 
