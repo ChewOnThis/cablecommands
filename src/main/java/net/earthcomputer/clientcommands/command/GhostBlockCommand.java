@@ -1,17 +1,22 @@
 package net.earthcomputer.clientcommands.command;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
+
 import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.animal.horse.Horse;
-import net.minecraft.world.entity.animal.camel.Camel; // If using Minecraft 1.20 or later
+import net.minecraft.world.entity.animal.camel.Camel; //If using Minecraft 1.20 or later
 import net.minecraft.world.entity.animal.Pig;
-
+import com.mojang.brigadier.context.CommandContext;
+import net.minecraft.core.particles.ParticleOptions;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -20,12 +25,19 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.arguments.ParticleArgument;
+import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.pattern.BlockInWorld;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,7 +45,7 @@ import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
 import org.joml.Math;
-
+import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
 import static dev.xpple.clientarguments.arguments.CBlockPosArgument.blockPos;
 import static dev.xpple.clientarguments.arguments.CBlockPosArgument.getBlockPos;
 import static dev.xpple.clientarguments.arguments.CBlockPredicateArgument.blockPredicate;
@@ -61,6 +73,14 @@ public class GhostBlockCommand {
 
     private static Integer surfYLevel = null; // This will store the custom Y level
 
+    private static boolean isContrailRunning = false;
+    private static BlockState contrailBlockState = null;
+    private static int contrailRadius = 0;
+    private static int contrailDistance = 0;
+    private static int contrailHeight = 0;
+    // private static boolean isContrailParticleRunning = false;
+
+    private static boolean isRunwayRunning = false;
 
     // Register the tick event handler
     static {
@@ -68,80 +88,135 @@ public class GhostBlockCommand {
     }
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, CommandBuildContext context) {
-        dispatcher.register(literal("cghostblock")
-            .then(literal("set")
-                .then(argument("pos", blockPos())
-                    .then(argument("block", blockState(context))
-                        .executes(ctx -> setGhostBlock(ctx.getSource(), getBlockPos(ctx, "pos"), getBlockState(ctx, "block").getState())))))
-            .then(literal("fill")
-                .then(argument("from", blockPos())
-                    .then(argument("to", blockPos())
+        dispatcher.register(
+            literal("cghostblock")
+                // Set Command
+                .then(literal("set")
+                    .then(argument("pos", blockPos())
                         .then(argument("block", blockState(context))
-                            .executes(ctx -> fillGhostBlocks(
+                            .executes(ctx -> setGhostBlock(ctx.getSource(), getBlockPos(ctx, "pos"), getBlockState(ctx, "block").getState()))
+                        )
+                    )
+                )
+
+                // Fill Command
+                .then(literal("fill")
+                    .then(argument("from", blockPos())
+                        .then(argument("to", blockPos())
+                            .then(argument("block", blockState(context))
+                                .executes(ctx -> fillGhostBlocks(
+                                    ctx.getSource(),
+                                    getBlockPos(ctx, "from"),
+                                    getBlockPos(ctx, "to"),
+                                    getBlockState(ctx, "block").getState(),
+                                    pos -> true
+                                ))
+                                .then(literal("replace")
+                                    .then(argument("filter", blockPredicate(context))
+                                        .executes(ctx -> fillGhostBlocks(
+                                            ctx.getSource(),
+                                            getBlockPos(ctx, "from"),
+                                            getBlockPos(ctx, "to"),
+                                            getBlockState(ctx, "block").getState(),
+                                            getBlockPredicate(ctx, "filter")
+                                        ))
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+
+                // Circle Command
+                .then(literal("circle")
+                    .then(argument("diameter", integer(1))
+                        .then(argument("block", blockState(context))
+                            .executes(ctx -> startCircleGhostBlocks(
                                 ctx.getSource(),
-                                getBlockPos(ctx, "from"),
-                                getBlockPos(ctx, "to"),
-                                getBlockState(ctx, "block").getState(),
-                                pos -> true
-                            )))
-                            .then(literal("replace")
-                                .then(argument("filter", blockPredicate(context))
-                                    .executes(ctx -> fillGhostBlocks(
-                                        ctx.getSource(),
-                                        getBlockPos(ctx, "from"),
-                                        getBlockPos(ctx, "to"),
-                                        getBlockState(ctx, "block").getState(),
-                                        getBlockPredicate(ctx, "filter")
-                                    )))))))
-            .then(literal("circle")
-                .then(argument("diameter", IntegerArgumentType.integer(1))
-                    .then(argument("block", blockState(context))
-                        .executes(ctx -> startCircleGhostBlocks(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "diameter"), getBlockState(ctx, "block").getState())))))
-            .then(literal("surf")
-                .then(argument("diameter", IntegerArgumentType.integer(1))
-                    .then(argument("block", blockState(context))
-                        .executes(ctx -> startSurfGhostBlocks(
-                            ctx.getSource(),
-                            IntegerArgumentType.getInteger(ctx, "diameter"),
-                            getBlockState(ctx, "block").getState(),
-                            null // Use default entity-based Y level adjustment
-                        ))
-                        .then(argument("yLevel", integer()) // Allow specifying Y level directly
+                                getInteger(ctx, "diameter"),
+                                getBlockState(ctx, "block").getState()
+                            ))
+                        )
+                    )
+                )
+
+                // Surf Command
+                .then(literal("surf")
+                    .then(argument("diameter", integer(1))
+                        .then(argument("block", blockState(context))
                             .executes(ctx -> startSurfGhostBlocks(
                                 ctx.getSource(),
-                                IntegerArgumentType.getInteger(ctx, "diameter"),
+                                getInteger(ctx, "diameter"),
                                 getBlockState(ctx, "block").getState(),
-                                IntegerArgumentType.getInteger(ctx, "yLevel") // Pass the custom Y level as an Integer
-                            ))))))
-            // Reintroduce the stop command
-            .then(literal("stop")
-                .executes(ctx -> stopGhostBlockReplacement(ctx.getSource()))));
+                                null // Use default entity-based Y level adjustment
+                            ))
+                            .then(argument("yLevel", integer())
+                                .executes(ctx -> startSurfGhostBlocks(
+                                    ctx.getSource(),
+                                    getInteger(ctx, "diameter"),
+                                    getBlockState(ctx, "block").getState(),
+                                    getInteger(ctx, "yLevel")
+                                ))
+                            )
+                        )
+                    )
+                )
+
+                .then(literal("contrail")
+                    .then(argument("diameter", integer(1))
+                        .then(argument("block", blockState(context))
+                            .then(argument("distance", integer(1))
+                                .then(argument("height", integer(1))
+                                    .executes(ctx -> startContrailGhostBlocks(
+                                        ctx.getSource(),
+                                        getInteger(ctx, "diameter"),
+                                        getBlockState(ctx, "block").getState(),
+                                        getInteger(ctx, "distance"),
+                                        getInteger(ctx, "height"),
+                                        ParticleTypes.SMOKE, Vec3.ZERO, 0.1f, 1, false // default particle options
+                                    ))
+                                )
+                            )
+                        )
+                    )
+                )
+
+                // Stop Command
+                .then(literal("stop")
+                    .executes(ctx -> stopGhostBlockReplacement(ctx.getSource()))
+                )
+        );
     }
     
+    
 
-// Method to stop both the circle and surf ghost block replacements
+// Method to stop both the circle and surf ghost block replacements+particles and contrails
 private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
     isCircleRunning = false;
     isSurfRunning = false;
+    isContrailRunning = false;
+    // isContrailParticleRunning = false;
     surfYLevel = null; // Reset the surf Y level if it was set manually
-    source.sendFeedback(Component.literal("Stopped ghost block replacement."));
+
+    source.sendFeedback(Component.literal("Stopped all ghost block replacements and particle contrail."));
     return Command.SINGLE_SUCCESS;
 }
 
-    private static int setGhostBlock(FabricClientCommandSource source, BlockPos pos, BlockState state) throws CommandSyntaxException {
-        ClientLevel level = source.getWorld();
-        assert level != null;
 
-        checkLoaded(level, pos);
+private static int setGhostBlock(FabricClientCommandSource source, BlockPos pos, BlockState state) throws CommandSyntaxException {
+    ClientLevel level = source.getWorld();
+    assert level != null;
 
-        boolean result = level.setBlock(pos, state, 18);
-        if (result) {
-            source.sendFeedback(Component.translatable("commands.cghostblock.set.success"));
-            return Command.SINGLE_SUCCESS;
-        } else {
-            throw SET_FAILED_EXCEPTION.create();
-        }
+    checkLoaded(level, pos);
+
+    boolean result = level.setBlock(pos, state, 18);
+    if (result) {
+        source.sendFeedback(Component.translatable("commands.cghostblock.set.success"));
+        return Command.SINGLE_SUCCESS;
+    } else {
+        throw SET_FAILED_EXCEPTION.create();
     }
+}
 
     private static int fillGhostBlocks(FabricClientCommandSource source, BlockPos from, BlockPos to, BlockState state, Predicate<BlockInWorld> filter) throws CommandSyntaxException {
         ClientLevel level = source.getWorld();
@@ -174,6 +249,66 @@ private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
         return successCount;
     }
 
+    private static int startContrailGhostBlocks(FabricClientCommandSource source, int diameter, BlockState state, int distance, int height, ParticleOptions particle, Vec3 delta, float speed, int count, boolean force) {
+        contrailRadius = diameter / 2;
+        contrailBlockState = state;
+        contrailDistance = distance;
+        contrailHeight = height;
+        isContrailRunning = true;
+
+        // Particle settings (commented out as we're removing particle-based contrail)
+        // contrailParticle = particle;
+        // contrailDelta = delta;
+        // contrailSpeed = speed;
+        // contrailCount = count;
+        // contrailForce = force;
+        // isContrailParticleRunning = true;
+
+        source.sendFeedback(Component.literal("Started contrail."));
+        return Command.SINGLE_SUCCESS;
+    }
+    
+    
+    private static void runContrailReplacement(Minecraft client, ClientLevel level) {
+        if (client.player == null) {
+            return; // No player, can't proceed
+        }
+
+        // Calculate the position behind the player at a specific distance
+        BlockPos playerPos = client.player.blockPosition();
+        double yaw = Math.toRadians(client.player.getYRot()); // Get player yaw
+        int offsetX = (int) (-Math.sin(yaw) * contrailDistance);
+        int offsetZ = (int) (Math.cos(yaw) * contrailDistance);
+        int yLevel = playerPos.getY() + contrailHeight;
+
+        BlockPos center = new BlockPos(playerPos.getX() + offsetX, yLevel, playerPos.getZ() + offsetZ);
+        int radius = contrailRadius;
+
+        // Place blocks in a spherical pattern
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    if (x * x + y * y + z * z <= radius * radius) {
+                        BlockPos pos = center.offset(x, y, z);
+                        if (!level.hasChunkAt(pos)) {
+                            continue;
+                        }
+                        level.setBlock(pos, contrailBlockState, 18);
+                    }
+                }
+            }
+        }
+    }
+
+    
+    private static int startRunwayGhostBlocks(FabricClientCommandSource source) {
+         isRunwayRunning = true;
+        source.sendFeedback(Component.literal("Started runway ghost block path."));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    
+    
     // Method to start the continuous circle update
     private static int startCircleGhostBlocks(FabricClientCommandSource source, int diameter, BlockState state) {
         circleRadius = diameter / 2;
@@ -200,8 +335,50 @@ private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
     }
     
 
+    private static void runRunwayReplacement(Minecraft client, ClientLevel level) {
+        if (client.player == null) {
+            return; // No player, can't proceed
+        }
     
-
+        BlockPos playerPos = client.player.blockPosition();
+        BlockPos blockBelow = playerPos.below();
+        BlockState blockBelowState = level.getBlockState(blockBelow);
+    
+        BlockPos posAbove = playerPos.above(2);
+        if (!level.hasChunkAt(posAbove)) {
+            return;
+        }
+    
+        level.setBlock(posAbove, blockBelowState, 18);
+    }
+    
+    // private static void runContrailParticleEffect(Minecraft client) {
+    //     if (client.player == null) {
+    //         return;
+    //     }
+    
+    //     // Set particle position to player's current position
+    //     Vec3 pos = client.player.position();
+    
+    //     // Generate particles around the player's position
+    //     for (int i = 0; i < contrailCount; i++) {
+    //         double offsetX = contrailDelta.x * client.level.random.nextGaussian();
+    //         double offsetY = contrailDelta.y * client.level.random.nextGaussian();
+    //         double offsetZ = contrailDelta.z * client.level.random.nextGaussian();
+            
+    //         client.level.addParticle(
+    //             contrailParticle,
+    //             contrailForce,
+    //             pos.x + offsetX,
+    //             pos.y + offsetY,
+    //             pos.z + offsetZ,
+    //             contrailSpeed * client.level.random.nextGaussian(),
+    //             contrailSpeed * client.level.random.nextGaussian(),
+    //             contrailSpeed * client.level.random.nextGaussian()
+    //         );
+    //     }
+    // }
+    
     // Method to stop the continuous circle or surf update
     private static int stopCircleGhostBlocks(FabricClientCommandSource source) {
         isCircleRunning = false;
@@ -216,15 +393,29 @@ private static int stopGhostBlockReplacement(FabricClientCommandSource source) {
         if (level == null) {
             return;
         }
-
+    
         if (isCircleRunning) {
             runCircleReplacement(client, level);
         }
-
+    
         if (isSurfRunning) {
             runSurfReplacement(client, level);
         }
+    
+        if (isContrailRunning) {
+            runContrailReplacement(client, level);
+        }
+    
+        if (isRunwayRunning) {
+            runRunwayReplacement(client, level);
+        }
+    
+        // if (isContrailParticleRunning) {
+        //     runContrailParticleEffect(client);
+        // }
     }
+    
+    
 
     private static void runCircleReplacement(Minecraft client, ClientLevel level) {
         if (client.player == null) {
@@ -479,7 +670,7 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.RED_STAINED_GLASS);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.BLACK_STAINED_GLASS);
     
-        // Add all stairs
+        //all stairs
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.OAK_STAIRS);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.SPRUCE_STAIRS);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.BIRCH_STAIRS);
@@ -532,9 +723,9 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.FARMLAND);
 
 
-        // Add any other stairs introduced in newer versions
+     
     
-        // Add all slabs
+    //all slabs
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.OAK_SLAB);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.SPRUCE_SLAB);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.BIRCH_SLAB);
@@ -584,7 +775,7 @@ private static boolean shouldReplaceBlock(ClientLevel level, BlockPos pos) {
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WAXED_WEATHERED_CUT_COPPER_SLAB);
         EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.WAXED_OXIDIZED_CUT_COPPER_SLAB);
     
-        // Add more transparent exception blocks as needed
+        // Add more transparent exception blocks as needed, will update with doors and such, playing modded atm so it's hard for me to remember all the items 
         // EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.GLASS_PANE);
         // EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.IRON_BARS);
         // EXCEPTION_TRANSPARENT_BLOCKS.add(Blocks.STONE_BRICK_WALL);
